@@ -15,7 +15,6 @@ local function RebuildCache(unit)
 
     -- TODO if unit == target and source != player
 
-    print('id'..id)
     if cache[id] then
       cache[id].count = cache[id].count + (count or 1)
     else
@@ -48,33 +47,17 @@ class "MixedElementPanel"(function(_ENV)
   __Indexer__()
   property "IconImage" { set = Toolset.fakefunc }
 
-  __Observable__()
-  __Indexer__()
-  property "AuraIndex" { set = Toolset.fakefunc }
-
   function Refresh(self)
     local count = 0
-    for i, buff in List(self.IDs):Map(function (id) print('[]'..id); return BUFFS_CACHE['player'][id] or BUFFS_CACHE['target'][id] end):Filter("x=>x"):GetIterator() do
-    print('lol'..buff.id .. ' = ' .. buff.icon)
+    for i, buff in self.IDs:Map(function (id) return BUFFS_CACHE['player'][id] or BUFFS_CACHE['target'][id] end):Filter("x=>x"):GetIterator() do
       self.IconCooldown[i] = CooldownStatus(buff.expirationTime - buff.duration, buff.duration)
       self.IconImage[i] = buff.icon
-      self.AuraIndex[i] = i
       count = i
     end
     self.Count = count
   end
 
-  field { __IDs = List, default = List{} }
-  property "IDs" {
-    type = List,
-    get = function (self) return self.__IDs or List() end,
-    set = function (self, value)
-      self.__IDs = value
-      self:Refresh()
-      -- TODO unbind previous observable +
-      -- TODO Observable.Merge(Observable.From(list.OnAdd), Observable.From(list.OnRemove))
-    end
-  }
+  property "IDs" { default = function () return List[Number]() end, handler = Refresh }
 
   function __ctor(self)
     cacheSubject:Subscribe(function () self:Refresh() end)
@@ -89,8 +72,10 @@ Style.UpdateSkin("Default", {
 
   [MixedElementPanelIcon] = {
     IconTexture = {
+      setAllPoints = true,
       file = Wow.FromPanelProperty("IconImage"),
     },
+
     Cooldown = {
       setAllPoints = true,
       enableMouse = false,
@@ -102,6 +87,5 @@ Style.UpdateSkin("Default", {
 SMALLBUFF_PANEL = MixedElementPanel("SmallBuffMain")
 __SlashCmd__ "sb" "add"
 function AddBuff(id)
-  print('[id] ' .. id)
   SMALLBUFF_PANEL.IDs = List[Number]{ 774 } -- Rejuv
 end
