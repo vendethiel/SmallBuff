@@ -17,6 +17,9 @@ interface "ICooldownLike"(function(_ENV)
   local sharedcd = { start = 0, duration = 0 }
 
   __Abstract__()
+  property "Cooldown" { type = Number, get = "GetCooldown" }
+
+  __Abstract__()
   function GetCooldown(self)
     sharedcd.start = self.Start
     sharedcd.duration = self.Duration
@@ -30,7 +33,7 @@ interface "ICooldownLike"(function(_ENV)
   property "Name"  { type = String }
 
   __Abstract__()
-  property "Icon"  { type = String + Number, handler = function (self) print("icon "..self.Icon) end }
+  property "Icon"  { type = String + Number }
 
   __Abstract__()
   property "Enabled" { default = true }
@@ -86,6 +89,19 @@ local function RebuildCache(cache, auraFn, unit)
   end
 end
 
+local shareCooldown = Cooldown()
+
+local function CooldownData(id)
+  local start, duration, enabled = GetSpellCooldown(id)
+  shareCooldown.ID = id
+  shareCooldown.Start = start
+  shareCooldown.Duration = duration
+  shareCooldown.Enabled = enabled
+  shareCooldown.Count = GetSpellCharges(id) or 0
+
+  return shareCooldown
+end
+
 function OnLoad()
   local BUILD_PLAYER_CACHE = RebuildCache(BUFFS_CACHE, UnitBuff, "player")
   local BUILD_TARGET_CACHE = RebuildCache(DEBUFFS_CACHE, UnitDebuff, "target")
@@ -115,17 +131,6 @@ class "MixedElementPanel"(function(_ENV)
   __Indexer__()
   property "Data" { set = Toolset.fakefunc, type = ICooldownLike }
 
-  local shareCooldown = Cooldown()
-
-  local function CooldownData(id)
-    local start, duration, enabled = GetSpellCooldown(id)
-    shareCooldown.Start = start
-    shareCooldown.Duration = duration 
-    shareCooldown.Enabled = enabled
-
-    return shareCooldown
-  end
-
   local function DataFor(id)
     return BUFFS_CACHE[id] or DEBUFFS_CACHE[id] or CooldownData(id)
   end
@@ -133,7 +138,6 @@ class "MixedElementPanel"(function(_ENV)
   function Refresh(self)
     local count = 0
     for i, data in self.IDs:Map(DataFor):GetIterator() do
-      print("Refresh "..i)
       self.Data[i] = data
       count = i
     end
@@ -150,19 +154,26 @@ end)
 Style.UpdateSkin("Default", {
   [MixedElementPanel] = {
     elementType = MixedElementPanelIcon,
+    elementWidth = 20,
+    elementHeight = 20,
     location = { Anchor("CENTER") },
   },
 
   [MixedElementPanelIcon] = {
     IconTexture = {
       setAllPoints = true,
-      file = Wow.FromPanelProperty("Data.Icon"),
+      file = Wow.FromPanelProperty("Data"):Map("x=>x.Icon"),
     },
 
     Cooldown = {
       setAllPoints = true,
       enableMouse = false,
-      cooldown = Wow.FromPanelProperty("Data", "Cooldown")
+      cooldown = Wow.FromPanelProperty("Data"):Map("x=>x.Cooldown")
+    },
+
+    Label = {
+      location = { Anchor("BOTTOM", 0, -12) },
+      text = Wow.FromPanelProperty("Data"):Map("x=>x.Count"):Map("x=>x > 1 and x or ''")
     }
   }
 })
@@ -171,5 +182,5 @@ SMALLBUFF_PANEL = MixedElementPanel("SmallBuffMain")
 
 __SlashCmd__ "sb" "add"
 function AddBuff(id) -- TODO from param
-  SMALLBUFF_PANEL.IDs = List[Number]{ 774 } -- Rejuv
+  SMALLBUFF_PANEL.IDs = List[Number]{ 8143, 5394, 108271, 974 }
 end
